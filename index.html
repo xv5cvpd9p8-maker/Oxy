@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Membrane Lung Functional Assessment (Zakhary et al., 2020)</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 18px; max-width: 1020px; }
+  h1 { margin-bottom: 6px; }
+  h2 { margin-top: 26px; }
+  label { display:block; margin-top:10px; }
+  input { padding:6px; margin-top:4px; width: 260px; max-width: 100%; }
+  button { margin-top: 18px; padding: 10px 18px; font-size: 16px; cursor:pointer; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .results { margin-top: 22px; border-top: 2px solid #333; padding-top: 16px; }
+  .ok { color:#006600; font-weight:bold; }
+  .concern { color:#b30000; font-weight:bold; }
+  .muted { color:#555; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+  th { background: #f3f3f3; }
+  .small { font-size: 0.92rem; }
+  .rowbtn { margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; }
+  .note { background:#fafafa; border:1px solid #ddd; padding:10px; border-radius:8px; }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<h1>Membrane Lung Functional Assessment</h1>
+<p class="muted"><em>Output language aligned with Zakhary et al., Critical Care (2020). This tool is decision support and does not replace clinical judgment.</em></p>
+
+<h2>Gas Transfer Inputs</h2>
+<div class="grid">
+  <div>
+    <label>Blood Flow Rate (L/min)
+      <input type="number" id="bfr" step="0.1" placeholder="e.g., 4.0">
+    </label>
+    <label>Haemoglobin (g/L)
+      <input type="number" id="hb" step="1" placeholder="e.g., 140">
+    </label>
+    <label>Pre-ML SaO₂ (%)
+      <input type="number" id="sPre" step="0.1" placeholder="e.g., 70">
+    </label>
+    <label>Post-ML SaO₂ (%)
+      <input type="number" id="sPost" step="0.1" placeholder="e.g., 98">
+    </label>
+  </div>
+
+  <div>
+    <label>Pre-ML PaO₂ (mmHg)
+      <input type="number" id="paPre" step="1" placeholder="e.g., 40">
+    </label>
+    <label>Post-ML PaO₂ (mmHg)
+      <input type="number" id="paPost" step="1" placeholder="e.g., 300">
+    </label>
+    <label>Pre-ML PaCO₂ (mmHg)
+      <input type="number" id="pco2Pre" step="1" placeholder="e.g., 50">
+    </label>
+    <label>Post-ML PaCO₂ (mmHg)
+      <input type="number" id="pco2Post" step="1" placeholder="e.g., 38">
+    </label>
+  </div>
+</div>
+
+<h2>Oxygenator Settings</h2>
+<div class="grid">
+  <div>
+    <label>Sweep Gas Flow (L/min)
+      <input type="number" id="sweep" step="0.1" placeholder="e.g., 12">
+    </label>
+  </div>
+  <div>
+    <label>FDO₂ (%)
+      <input type="number" id="fdo2" step="1" placeholder="e.g., 100">
+    </label>
+    <div class="small muted">Maximal conditions in this tool: Sweep ≥ <strong>12</strong> L/min and FDO₂ = <strong>100%</strong>.</div>
+  </div>
+</div>
+
+<h2>Pressure Monitoring (single timepoint)</h2>
+<div class="grid">
+  <div>
+    <label>Pre-ML Pressure (mmHg)
+      <input type="number" id="pPre" step="1" placeholder="e.g., 250">
+    </label>
+  </div>
+  <div>
+    <label>Post-ML Pressure (mmHg)
+      <input type="number" id="pPost" step="1" placeholder="e.g., 180">
+    </label>
+  </div>
+  <div>
+    <label>Venous (drainage/inlet) pressure (mmHg)
+      <input type="number" id="vPre" step="1" placeholder="e.g., -40">
+    </label>
+    <div class="small muted">More negative values suggest increased drainage limitation (context-dependent).</div>
+  </div>
+</div>
+
+<h2>Haematologic / Haemolysis Profile</h2>
+<div class="grid">
+  <div>
+    <label>Platelets (×10⁹/L)
+      <input type="number" id="plt" step="1" placeholder="e.g., 180">
+    </label>
+    <label>INR
+      <input type="number" id="inr" step="0.01" placeholder="e.g., 1.2">
+    </label>
+    <label>aPTT (s)
+      <input type="number" id="aptt" step="1" placeholder="e.g., 32">
+    </label>
+    <label>D-dimer (µg/L FEU)
+      <input type="number" id="ddimer" step="1" placeholder="e.g., 400">
+    </label>
+  </div>
+  <div>
+    <label>Fibrinogen (g/L)
+      <input type="number" id="fib" step="0.1" placeholder="e.g., 3.0">
+    </label>
+    <label>LDH (U/L)
+      <input type="number" id="ldh" step="1" placeholder="e.g., 200">
+    </label>
+    <label>Plasma free haemoglobin (mg/dL)
+      <input type="number" id="pfhb" step="0.1" placeholder="e.g., 10">
+    </label>
+  </div>
+</div>
+
+<h2>Hydraulic Trend (hourly for 6 hours)</h2>
+<p class="muted small">
+Enter hourly blood flow, pump RPM, ΔP, and venous (drainage/inlet) pressure. Trend interpretation prioritizes <strong>resistance-normalized</strong> changes (R<sub>ML</sub> = ΔP/BFR) and incorporates venous pressure to help differentiate
+<strong>increasing resistance</strong> from <strong>drainage limitation</strong>.
+</p>
+
+<table id="trendTable">
+  <thead>
+    <tr>
+      <th class="nowrap">Hour</th>
+      <th>Blood Flow (L/min)</th>
+      <th>Pump RPM</th>
+      <th>ΔP (mmHg)</th>
+      <th>Venous pressure (mmHg)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><input type="number" id="t_flow_1" step="0.1"></td><td><input type="number" id="t_rpm_1" step="1"></td><td><input type="number" id="t_dp_1" step="1"></td><td><input type="number" id="t_vp_1" step="1"></td></tr>
+    <tr><td>2</td><td><input type="number" id="t_flow_2" step="0.1"></td><td><input type="number" id="t_rpm_2" step="1"></td><td><input type="number" id="t_dp_2" step="1"></td><td><input type="number" id="t_vp_2" step="1"></td></tr>
+    <tr><td>3</td><td><input type="number" id="t_flow_3" step="0.1"></td><td><input type="number" id="t_rpm_3" step="1"></td><td><input type="number" id="t_dp_3" step="1"></td><td><input type="number" id="t_vp_3" step="1"></td></tr>
+    <tr><td>4</td><td><input type="number" id="t_flow_4" step="0.1"></td><td><input type="number" id="t_rpm_4" step="1"></td><td><input type="number" id="t_dp_4" step="1"></td><td><input type="number" id="t_vp_4" step="1"></td></tr>
+    <tr><td>5</td><td><input type="number" id="t_flow_5" step="0.1"></td><td><input type="number" id="t_rpm_5" step="1"></td><td><input type="number" id="t_dp_5" step="1"></td><td><input type="number" id="t_vp_5" step="1"></td></tr>
+    <tr><td>6</td><td><input type="number" id="t_flow_6" step="0.1"></td><td><input type="number" id="t_rpm_6" step="1"></td><td><input type="number" id="t_dp_6" step="1"></td><td><input type="number" id="t_vp_6" step="1"></td></tr>
+  </tbody>
+</table>
+
+<div class="rowbtn">
+  <button type="button" onclick="assess()">Assess Membrane Lung</button>
+  <button type="button" onclick="downloadReport()">Download Assessment Report</button>
+</div>
+
+<div class="results" id="results">
+  <p class="muted">Results will appear here after you press <strong>Assess Membrane Lung</strong>. You may adjust values and press the button again without reloading the page.</p>
+</div>
+
+<script>
+function num(id){
+  const el = document.getElementById(id);
+  if(!el) return null;
+  const v = el.value;
+  if(v === "" || v === null || v === undefined) return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+function fmt(x, dp=2){
+  if(x === null || x === undefined || isNaN(x)) return "—";
+  return Number(x).toFixed(dp);
+}
+function monotonicIncrease(vals){
+  // non-decreasing with at least one strict increase, using >=3 non-null points
+  let prev = null, used = 0, strict = false;
+  for(const v of vals){
+    if(v === null) continue;
+    if(prev === null){ prev = v; used++; continue; }
+    if(v < prev) return false;
+    if(v > prev) strict = true;
+    prev = v; used++;
+  }
+  return used >= 3 && strict;
+}
+function monotonicDecrease(vals){
+  // non-increasing with at least one strict decrease, using >=3 non-null points
+  let prev = null, used = 0, strict = false;
+  for(const v of vals){
+    if(v === null) continue;
+    if(prev === null){ prev = v; used++; continue; }
+    if(v > prev) return false;
+    if(v < prev) strict = true;
+    prev = v; used++;
+  }
+  return used >= 3 && strict;
+}
+function rangeNonNull(vals){
+  const v = vals.filter(x => x !== null);
+  if(v.length === 0) return null;
+  return Math.max(...v) - Math.min(...v);
+}
+function firstLast(vals){
+  const v = vals.filter(x => x !== null);
+  if(v.length < 2) return null;
+  return {first: v[0], last: v[v.length-1]};
+}
+
+function assess(){
+  // Core inputs
+  const bfr_Lmin = num("bfr");
+  const hb_gL = num("hb");
+  const sPre_pct = num("sPre");
+  const sPost_pct = num("sPost");
+  const paPre = num("paPre");
+  const paPost = num("paPost");
+  const pco2Pre = num("pco2Pre");
+  const pco2Post = num("pco2Post");
+
+  const sweep = num("sweep");
+  const fdo2 = num("fdo2");
+
+  const pPre = num("pPre");
+  const pPost = num("pPost");
+  const vPre = num("vPre");
+
+  const plt = num("plt");
+  const inr = num("inr");
+  const fib = num("fib");
+  const pfhb = num("pfhb");
+
+  // O2 content
+  const hb_gdL = (hb_gL === null) ? null : hb_gL / 10.0;
+  let Cpre = null, Cpost = null;
+  if(hb_gdL !== null && sPre_pct !== null && paPre !== null){
+    Cpre = (1.34 * hb_gdL * (sPre_pct/100.0)) + (0.003 * paPre);
+  }
+  if(hb_gdL !== null && sPost_pct !== null && paPost !== null){
+    Cpost = (1.34 * hb_gdL * (sPost_pct/100.0)) + (0.003 * paPost);
+  }
+
+  let vo2 = null;
+  if(Cpre !== null && Cpost !== null && bfr_Lmin !== null){
+    vo2 = (Cpost - Cpre) * (bfr_Lmin * 10.0); // mL/min
+  }
+
+  // Single timepoint hydraulics
+  let deltaP = null, rml = null;
+  if(pPre !== null && pPost !== null){
+    deltaP = pPre - pPost;
+  }
+  if(deltaP !== null && bfr_Lmin !== null && bfr_Lmin !== 0){
+    rml = deltaP / bfr_Lmin;
+  }
+
+  // CO2
+  let deltaCO2 = null;
+  if(pco2Pre !== null && pco2Post !== null){
+    deltaCO2 = pco2Pre - pco2Post;
+  }
+
+  // Settings maximal criteria
+  const sweepMax = (sweep !== null && sweep >= 12);
+  const fdo2Max = (fdo2 !== null && fdo2 === 100);
+
+  // Primary domains
+  const oxygenFailure = (vo2 !== null && vo2 < 150 && sweepMax && fdo2Max);
+  const co2Failure = (pco2Post !== null && deltaCO2 !== null && pco2Post > 40 && deltaCO2 < 10 && sweepMax);
+
+  // Supportive labs
+  const haemolysis = (pfhb !== null && pfhb > 50);
+  const coagulopathy = ((plt !== null && plt < 150) || (fib !== null && fib < 2.0) || (inr !== null && inr > 1.5));
+
+  // 6-hour trend with derived RML per hour
+  const trend = [];
+  for(let i=1;i<=6;i++){
+    const flow = num(`t_flow_${i}`);
+    const rpm  = num(`t_rpm_${i}`);
+    const dp   = num(`t_dp_${i}`);
+    const vp   = num(`t_vp_${i}`);
+    const rmlh = (flow !== null && dp !== null && flow !== 0) ? (dp/flow) : null;
+    trend.push({hour:i, flow, rpm, dp, vp, rml:rmlh});
+  }
+
+  const flowSeries = trend.map(x=>x.flow);
+  const rpmSeries  = trend.map(x=>x.rpm);
+  const rmlSeries  = trend.map(x=>x.rml);
+  const vpSeries   = trend.map(x=>x.vp);
+
+  // Primary obstruction signal: progressively increasing RML
+  const rmlUp = monotonicIncrease(rmlSeries);
+
+  // Stability / ranges
+  const flowRange = rangeNonNull(flowSeries);
+  const flowStable = (flowRange !== null && flowRange <= 0.5);
+
+  const rpmRange = rangeNonNull(rpmSeries);
+  const rpmStable = (rpmRange !== null && rpmRange <= 150); // tolerance
+
+  const vpRange = rangeNonNull(vpSeries);
+  const vpStable = (vpRange !== null && vpRange <= 10); // relatively stable venous pressure
+
+  // Other hydraulic patterns
+  const rpmUp = monotonicIncrease(rpmSeries);
+  const flowDown = monotonicDecrease(flowSeries);
+
+  const rpmUpAtStableFlow = (flowStable && rpmUp);
+  const rpmUpWithFlowDown = (rpmUp && flowDown);
+
+  // Flow decreases at stable RPM -> incorporate VP to contextualize
+  const flowDownAtStableRpm = (rpmStable && flowDown);
+
+  // VP becoming more negative over time suggests increasing drainage limitation
+  // Example: -30 -> -50 is a decrease (more negative)
+  const vpMoreNegative = monotonicDecrease(vpSeries);
+  const vpFL = firstLast(vpSeries);
+  const vpDropMeaningful = (vpFL !== null && (vpFL.last < (vpFL.first - 10)));
+
+  // Final obstruction/drainage trend criteria
+  const obstructionTrendSuggestive = (rmlUp || rpmUpAtStableFlow || rpmUpWithFlowDown || flowDownAtStableRpm);
+
+  const primaryConcern = (oxygenFailure || co2Failure || obstructionTrendSuggestive || haemolysis);
+  const supportiveOnlyCoag = (coagulopathy && !primaryConcern);
+
+  // Interpret flow↓ at stable RPM
+  let flowDownStableRpmText = null;
+  if(flowDownAtStableRpm){
+    if((vpMoreNegative || vpDropMeaningful) && (vpRange !== null) && !vpStable){
+      flowDownStableRpmText =
+        "Flow has decreased at relatively stable pump speed with venous pressure becoming more negative. This pattern is more consistent with reduced venous drainage than membrane lung obstruction; correlate with drainage pressures, cannula position, and volume status.";
+    } else if(vpStable || vpRange === null){
+      flowDownStableRpmText =
+        "Flow has decreased at relatively stable pump speed without a clear increase in venous drainage limitation. This may reflect increasing circuit resistance (including membrane lung obstruction) and should be correlated with RML trend, cannula assessment, and circuit examination.";
+    } else {
+      flowDownStableRpmText =
+        "Flow has decreased at relatively stable pump speed. Venous pressure data suggest possible drainage limitation; correlate clinically.";
+    }
+  }
+
+  let html = "<h2>Assessment Results</h2>";
+
+  // Oxygen transfer
+  html += "<p><strong>Oxygen Transfer:</strong><br>";
+  if(vo2 === null || Cpre === null || Cpost === null){
+    html += "<span class='muted'>Insufficient data to calculate oxygen uptake (V′O₂). Provide Hb, pre/post SaO₂, pre/post PaO₂, and blood flow.</span>";
+  } else {
+    html += `Calculated C<sub>PreO₂</sub>: <strong>${fmt(Cpre,2)}</strong> mL O₂/dL<br>`;
+    html += `Calculated C<sub>PostO₂</sub>: <strong>${fmt(Cpost,2)}</strong> mL O₂/dL<br>`;
+    html += `Calculated V′O₂: <strong>${fmt(vo2,0)}</strong> mL/min<br>`;
+    html += oxygenFailure
+      ? "<span class='concern'>Reduced oxygen uptake despite maximal membrane lung conditions.</span>"
+      : "<span class='ok'>Gas transfer findings are not consistent with membrane lung dysfunction at this time.</span>";
+  }
+  html += "</p>";
+
+  // CO2 removal
+  html += "<p><strong>Carbon Dioxide Removal:</strong><br>";
+  if(deltaCO2 === null || pco2Post === null){
+    html += "<span class='muted'>Insufficient data to assess CO₂ clearance. Provide pre/post PaCO₂.</span>";
+  } else {
+    html += `ΔPaCO₂ (Pre − Post): <strong>${fmt(deltaCO2,0)}</strong> mmHg<br>`;
+    html += co2Failure
+      ? "<span class='concern'>Impaired carbon dioxide clearance despite high sweep gas flow.</span>"
+      : "<span class='ok'>Carbon dioxide removal is preserved under current sweep gas conditions.</span>";
+  }
+  html += "</p>";
+
+  // Single timepoint hydraulics
+  html += "<p><strong>Blood Flow Across Membrane Lung (single timepoint):</strong><br>";
+  if(deltaP === null || rml === null){
+    html += "<span class='muted'>Provide pre/post membrane lung pressures and blood flow to calculate ΔP and R<sub>ML</sub>.</span>";
+  } else {
+    html += `ΔP (Pre − Post): <strong>${fmt(deltaP,0)}</strong> mmHg<br>`;
+    html += `R<sub>ML</sub> (ΔP/BFR): <strong>${fmt(rml,2)}</strong> mmHg per (L/min)<br>`;
+    if(vPre !== null){
+      html += `Venous (drainage/inlet) pressure: <strong>${fmt(vPre,0)}</strong> mmHg<br>`;
+    }
+    html += "<span class='muted'>Interpretation is trend-based; absolute thresholds are not used.</span>";
+  }
+  html += "</p>";
+
+  // Trend interpretation
+  html += "<p><strong>Blood Flow Obstruction / Drainage Trend (6-hour series):</strong><br>";
+  const rmlPoints = rmlSeries.filter(x=>x!==null).length;
+  const haveAltPattern = (rpmUp && (flowStable || flowDown)) || (rpmStable && flowDown);
+  if(rmlPoints < 3 && !haveAltPattern){
+    html += "<span class='muted'>Insufficient valid timepoints for trend interpretation (requires ≥ 3 timepoints for R<sub>ML</sub> or a clear RPM/flow pattern).</span>";
+  } else {
+    const signals = [];
+    if(rmlUp) signals.push("R<sub>ML</sub> (ΔP/BFR) non-decreasing with at least one increase");
+    if(rpmUpAtStableFlow) signals.push("RPM non-decreasing with at least one increase at relatively stable flow");
+    if(rpmUpWithFlowDown) signals.push("RPM non-decreasing with at least one increase while flow decreases");
+    if(flowDownAtStableRpm) signals.push("Blood flow non-increasing with at least one decrease at relatively stable RPM");
+
+    if(signals.length === 0){
+      html += "<span class='muted'>No resistance-normalized trend consistent with increasing obstruction was identified. Changes in ΔP and RPM may reflect intentional adjustments in blood flow.</span>";
+    } else {
+      html += "Trend signals detected: <strong>" + signals.join("; ") + "</strong><br>";
+      if(obstructionTrendSuggestive){
+        if(flowDownStableRpmText){
+          html += "<span class='concern'>" + flowDownStableRpmText + "</span>";
+        } else {
+          html += "<span class='concern'>Findings suggest increasing resistance to blood flow across the membrane lung. This pattern may precede membrane lung dysfunction.</span>";
+        }
+      } else {
+        html += "<span class='muted'>Trend pattern is present but does not meet the tool’s criteria for a pattern suggestive of increasing resistance.</span>";
+      }
+    }
+
+    html += "<br><span class='muted small'>Derived hourly R<sub>ML</sub> (ΔP/BFR), mmHg per (L/min): ";
+    html += trend.map(x => x.rml === null ? "—" : fmt(x.rml,2)).join(", ") + ".</span>";
+
+    if(flowRange !== null){
+      html += `<br><span class='muted small'>Entered flow range: ${fmt(flowRange,1)} L/min (${flowStable ? "relatively stable" : "variable"}).</span>`;
+    }
+    if(rpmRange !== null){
+      html += `<br><span class='muted small'>Entered RPM range: ${fmt(rpmRange,0)} RPM (${rpmStable ? "relatively stable" : "variable"}).</span>`;
+    }
+    if(vpRange !== null){
+      html += `<br><span class='muted small'>Entered venous pressure range: ${fmt(vpRange,0)} mmHg (${vpStable ? "relatively stable" : "variable"}). More negative values may indicate increased drainage limitation.</span>`;
+    }
+  }
+  html += "</p>";
+
+  // Haematologic / haemolysis
+  html += "<p><strong>Haematologic / Haemolysis Assessment:</strong><br>";
+  if(haemolysis){
+    html += "<span class='concern'>Laboratory evidence of haemolysis without an alternative explanation.</span>";
+  } else if(coagulopathy){
+    html += "<span class='concern'>Haematologic abnormalities are present and may be circuit-related. Interpretation requires exclusion of alternative causes.</span>";
+  } else {
+    html += "<span class='ok'>No haematologic pattern suggestive of circuit-related pathology identified.</span>";
+  }
+  html += "</p><hr>";
+
+  // Synthesis
+  if(primaryConcern){
+    html += "<p class='concern'><strong>One or more assessment domains demonstrate findings consistent with membrane lung dysfunction. Consider membrane lung or circuit exchange in the appropriate clinical context.</strong></p>";
+  } else if(supportiveOnlyCoag){
+    html += "<div class='note'><p class='concern'><strong>Haematologic abnormalities are present.</strong></p>";
+    html += "<p class='muted small'>In the absence of gas transfer impairment, impaired CO₂ clearance under high sweep, haemolysis, or a trend suggestive of increasing resistance to blood flow, these findings alone are insufficient to suggest membrane lung dysfunction. Continue close monitoring, evaluate for alternative causes, and reassess.</p></div>";
+  } else {
+    html += "<p class='ok'><strong>No current physiologic or laboratory evidence of membrane lung dysfunction. Continued close monitoring is recommended.</strong></p>";
+  }
+
+  // Operating conditions
+  html += "<p class='muted small'><strong>Operating conditions:</strong> ";
+  html += `Sweep ${sweep === null ? "—" : fmt(sweep,1)} L/min (${sweepMax ? "maximal" : "not maximal"}); `;
+  html += `FDO₂ ${fdo2 === null ? "—" : fmt(fdo2,0)}% (${fdo2Max ? "maximal" : "not maximal"}).</p>`;
+
+  document.getElementById("results").innerHTML = html;
+
+  window.latestReport = {
+    generated: new Date().toISOString(),
+    flags: {
+      oxygenFailure, co2Failure, haemolysis, coagulopathy,
+      obstructionTrendSuggestive, rmlUp, rpmUpAtStableFlow, rpmUpWithFlowDown,
+      flowDownAtStableRpm, vpMoreNegative, vpDropMeaningful, rpmStable, flowStable
+    }
+  };
+}
+
+function downloadReport(){
+  if(!window.latestReport){
+    alert("Run an assessment first.");
+    return;
+  }
+  const r = window.latestReport;
+  let txt = "Membrane Lung Functional Assessment (Zakhary et al., 2020)\n";
+  txt += "Generated: " + r.generated + "\n\nFlags:\n";
+  for(const [k,v] of Object.entries(r.flags)){
+    txt += `- ${k}: ${v}\n`;
+  }
+  const blob = new Blob([txt], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "membrane_lung_assessment_report.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
